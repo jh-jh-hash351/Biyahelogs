@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/user.dart';
 import '../models/vehicle.dart';
@@ -20,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmController = TextEditingController();
   final _vehicleNameController = TextEditingController();
   final _plateController = TextEditingController();
+  final _securityAnswerController = TextEditingController();
   final _db = DatabaseService.instance;
 
   String _vehicleType = vehicleTypes.first;
@@ -27,6 +29,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _loading = false;
   String? _error;
+  String? _selectedQuestion;
+
+  static const List<String> _securityQuestions = [
+    'What is the name of your first pet?',
+    'What is your mother\'s maiden name?',
+    'What was the name of your elementary school?',
+    'What is the name of the town where you were born?',
+    'What was the make of your first vehicle?',
+    'What is your favorite food?',
+    'What was your childhood nickname?',
+  ];
 
   @override
   void dispose() {
@@ -35,6 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmController.dispose();
     _vehicleNameController.dispose();
     _plateController.dispose();
+    _securityAnswerController.dispose();
     super.dispose();
   }
 
@@ -54,6 +68,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         plateNumber: _plateController.text.trim().isEmpty
             ? null
             : _plateController.text.trim().toUpperCase(),
+        securityQuestion: _selectedQuestion,
+        securityAnswer: _securityAnswerController.text.trim().isEmpty
+            ? null
+            : _securityAnswerController.text.trim(),
       );
       await _db.startSession(user.id);
       if (!mounted) return;
@@ -158,6 +176,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           validator: (value) {
                             if (value != _passwordController.text) {
                               return 'Passwords do not match';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedQuestion,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Security question (for recovery)',
+                            prefixIcon: Icon(Icons.help_outline),
+                          ),
+                          hint: const Text('Select a security question'),
+                          items: _securityQuestions
+                              .map(
+                                (q) => DropdownMenuItem(
+                                  value: q,
+                                  child: Text(
+                                    q,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedQuestion = value);
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a security question';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _securityAnswerController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Security answer',
+                            hintText: 'Answer for password recovery',
+                            prefixIcon: Icon(Icons.shield_outlined),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please provide an answer';
                             }
                             return null;
                           },
@@ -271,12 +335,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: FilledButton.icon(
                         onPressed: _loading ? null : _submit,
                         icon: _loading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
+                            ? LoadingAnimationWidget.beat(
+                                color: colorScheme.onPrimary,
+                                size: 20,
                               )
                             : const Icon(Icons.check),
                         label: Text(

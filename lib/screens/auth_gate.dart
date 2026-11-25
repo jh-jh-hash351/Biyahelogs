@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/user.dart';
 import '../services/database_service.dart';
@@ -56,14 +57,18 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
+      final primary = Theme.of(context).colorScheme.primary;
+      return Scaffold(
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Opening BiyaheLog...'),
+              LoadingAnimationWidget.beat(
+                color: primary,
+                size: 44,
+              ),
+              const SizedBox(height: 16),
+              const Text('Opening BiyaheLog...'),
             ],
           ),
         ),

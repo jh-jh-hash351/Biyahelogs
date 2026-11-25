@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/user.dart';
 import '../services/database_service.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -59,6 +61,14 @@ class _LoginScreenState extends State<LoginScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _openForgotPassword() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const ForgotPasswordScreen(),
+      ),
+    );
   }
 
   Future<void> _openRegister() async {
@@ -189,6 +199,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 return null;
                               },
                             ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed:
+                                    _loading ? null : _openForgotPassword,
+                                child: const Text('Forgot password?'),
+                              ),
+                            ),
                             if (_error != null) ...[
                               const SizedBox(height: 14),
                               Container(
@@ -225,11 +243,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: FilledButton(
                                 onPressed: _loading ? null : _submit,
                                 child: _loading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
+                                    ? Center(
+                                        child: LoadingAnimationWidget.beat(
+                                          color: colorScheme.onPrimary,
+                                          size: 24,
                                         ),
                                       )
                                     : const Text(

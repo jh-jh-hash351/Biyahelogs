@@ -204,4 +204,91 @@ void main() {
 
     expect(await db.getLogsForVehicle(vehicle.id), isEmpty);
   });
+
+  test('sets security question and resets password with answer', () async {
+    await db.register(
+      username: 'maria',
+      password: 'initialPassword',
+      vehicleName: 'Scooter',
+      vehicleType: 'Motorcycle',
+      engineType: 'Gasoline',
+      securityQuestion: 'What is your favorite food?',
+      securityAnswer: 'Sinigang',
+    );
+
+    final question = await db.getSecurityQuestion('maria');
+    expect(question, 'What is your favorite food?');
+
+    // Wrong answer should return false
+    final wrongAnswer = await db.resetPasswordWithSecurityAnswer(
+      username: 'maria',
+      answer: 'Adobo',
+      newPassword: 'newPassword123',
+    );
+    expect(wrongAnswer, isFalse);
+
+    // Correct answer (case-insensitive) should return true and reset password
+    final success = await db.resetPasswordWithSecurityAnswer(
+      username: 'maria',
+      answer: 'sinigang',
+      newPassword: 'newPassword123',
+    );
+    expect(success, isTrue);
+
+    // Old password no longer works
+    expect(await db.login('maria', 'initialPassword'), isNull);
+
+    // New password works
+    final user = await db.login('maria', 'newPassword123');
+    expect(user, isNotNull);
+    expect(user!.username, 'maria');
+  });
+
+  test('fetches paginated logs for infinite scrolling', () async {
+    await registerSampleUser();
+    final user = (await db.login('juan', 'secret1'))!;
+    final vehicle = (await db.getVehicles(user.id)).single;
+
+    for (var i = 1; i <= 25; i++) {
+      await db.addLog(
+        sampleLog(
+          userId: user.id,
+          vehicleId: vehicle.id,
+          odometer: 100.0 * i,
+          cost: 100.0 * i,
+          date: DateTime(2026, 9, i),
+        ),
+      );
+    }
+
+    final page1 = await db.getLogsForVehiclePaged(
+      vehicle.id,
+      offset: 0,
+      pageSize: 10,
+    );
+    expect(page1.length, 10);
+    // Ordered date DESC
+    expect(page1.first.odometer, 2500.0);
+
+    final page2 = await db.getLogsForVehiclePaged(
+      vehicle.id,
+      offset: 10,
+      pageSize: 10,
+    );
+    expect(page2.length, 10);
+
+    final page3 = await db.getLogsForVehiclePaged(
+      vehicle.id,
+      offset: 20,
+      pageSize: 10,
+    );
+    expect(page3.length, 5);
+
+    final page4 = await db.getLogsForVehiclePaged(
+      vehicle.id,
+      offset: 25,
+      pageSize: 10,
+    );
+    expect(page4, isEmpty);
+  });
 }

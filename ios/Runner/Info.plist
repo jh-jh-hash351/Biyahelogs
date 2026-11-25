@@ -7,7 +7,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Flutter Application 2</string>
+	<string>BiyaheLog</string>
+	<key>NSCameraUsageDescription</key>
+	<string>BiyaheLog uses the camera to capture receipt and vehicle photos for your logs.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>BiyaheLog needs photo access so you can attach receipts and vehicle images to logs.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>BiyaheLog can save photos you capture for your vehicle logs.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

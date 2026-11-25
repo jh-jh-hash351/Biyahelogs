@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/log_entry.dart';
 import '../models/vehicle.dart';
@@ -277,12 +278,9 @@ class _LogFormScreenState extends State<LogFormScreen> {
                       child: FilledButton.icon(
                         onPressed: _saving ? null : _save,
                         icon: _saving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
+                            ? LoadingAnimationWidget.beat(
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                size: 20,
                               )
                             : const Icon(Icons.save_outlined),
                         label: Text(

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/log_entry.dart';
 import '../models/vehicle.dart';
@@ -120,9 +121,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (_loading) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 220),
-          Center(child: CircularProgressIndicator()),
+        children: [
+          const SizedBox(height: 220),
+          Center(
+            child: LoadingAnimationWidget.beat(
+              color: theme.colorScheme.primary,
+              size: 44,
+            ),
+          ),
         ],
       );
     }

@@ -6,7 +6,6 @@ import '../services/database_service.dart';
 import '../utils/calculations.dart';
 import '../utils/formatters.dart';
 import '../utils/log_type_ui.dart';
-import 'log_form_screen.dart';
 
 class LogDetailScreen extends StatefulWidget {
   final Vehicle vehicle;
@@ -45,44 +44,6 @@ class _LogDetailScreenState extends State<LogDetailScreen> {
     });
   }
 
-  Future<void> _edit() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => LogFormScreen(
-          vehicle: widget.vehicle,
-          existing: _log,
-        ),
-      ),
-    );
-    await _load();
-  }
-
-  Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete this entry?'),
-        content: const Text(
-          'This log entry will be removed permanently. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await _db.deleteLog(_log.id);
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,18 +55,6 @@ class _LogDetailScreenState extends State<LogDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Log details'),
-        actions: [
-          IconButton(
-            onPressed: _edit,
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit entry',
-          ),
-          IconButton(
-            onPressed: _delete,
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Delete entry',
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),

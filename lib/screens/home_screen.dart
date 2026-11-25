@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/log_entry.dart';
 import '../models/user.dart';
@@ -11,12 +12,14 @@ import '../widgets/log_tile.dart';
 import '../widgets/summary_tile.dart';
 import 'log_detail_screen.dart';
 import 'log_form_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
   final Vehicle vehicle;
   final List<Vehicle> vehicles;
   final Future<void> Function(Vehicle vehicle) onSwitchVehicle;
+  final VoidCallback onOpenRecentLogs;
   final VoidCallback onOpenGarage;
   final Future<void> Function() onLogout;
 
@@ -26,6 +29,7 @@ class HomeScreen extends StatefulWidget {
     required this.vehicle,
     required this.vehicles,
     required this.onSwitchVehicle,
+    required this.onOpenRecentLogs,
     required this.onOpenGarage,
     required this.onLogout,
   });
@@ -45,6 +49,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.vehicle.id != widget.vehicle.id) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -160,48 +172,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _confirmDelete(LogEntry log) async {
-    setState(() {
-      _logs = _logs.where((entry) => entry.id != log.id).toList();
-    });
-    try {
-      await _db.deleteLog(log.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Log entry deleted.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete the entry. $error')),
-      );
-      await _load();
-    }
-  }
-
-  Future<bool> _confirmDismiss() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete this entry?'),
-        content: const Text(
-          'This log entry will be removed permanently. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    return confirmed ?? false;
-  }
-
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -254,6 +224,13 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.account_circle_outlined),
             onSelected: (value) {
               if (value == 'garage') widget.onOpenGarage();
+              if (value == 'settings') {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
+              }
               if (value == 'logout') _confirmLogout();
             },
             itemBuilder: (menuContext) => [
@@ -286,6 +263,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(Icons.garage_outlined),
                     SizedBox(width: 10),
                     Text('My garage'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings_outlined),
+                    SizedBox(width: 10),
+                    Text('Settings'),
                   ],
                 ),
               ),
@@ -331,9 +318,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_loading) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 220),
-          Center(child: CircularProgressIndicator()),
+        children: [
+          const SizedBox(height: 220),
+          Center(
+            child: LoadingAnimationWidget.beat(
+              color: theme.colorScheme.primary,
+              size: 44,
+            ),
+          ),
         ],
       );
     }
@@ -414,15 +406,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const Spacer(),
             if (_logs.isNotEmpty)
-              Text(
-                '${_logs.length} ${_logs.length == 1 ? 'entry' : 'entries'}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              TextButton(
+                onPressed: widget.onOpenRecentLogs,
+                child: const Text('View all'),
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         if (_logs.isEmpty)
           EmptyState(
             icon: Icons.receipt_long,
@@ -432,35 +422,32 @@ class _HomeScreenState extends State<HomeScreen> {
             actionLabel: 'Add your first log',
             onAction: () => _openAdd(),
           )
-        else
-          ..._logs.map(
+        else ...[
+          // Preview of recent logs
+          ..._logs.take(4).map(
             (log) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: Dismissible(
-                key: ValueKey(log.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 24),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.error,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    Icons.delete_outline,
-                    color: theme.colorScheme.onError,
-                  ),
-                ),
-                confirmDismiss: (_) => _confirmDismiss(),
-                onDismissed: (_) => _confirmDelete(log),
-                child: LogTile(
-                  log: log,
-                  fuelUnit: widget.vehicle.fuelUnit,
-                  onTap: () => _openDetail(log),
-                ),
+              child: LogTile(
+                log: log,
+                fuelUnit: widget.vehicle.fuelUnit,
+                onTap: () => _openDetail(log),
               ),
             ),
           ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: widget.onOpenRecentLogs,
+              icon: const Icon(Icons.receipt_long_outlined),
+              label: Text(
+                'Recent logs (${_logs.length} ${_logs.length == 1 ? "entry" : "entries"})',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

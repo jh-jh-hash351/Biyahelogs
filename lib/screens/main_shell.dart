@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/user.dart';
 import '../models/vehicle.dart';
 import '../services/database_service.dart';
 import 'home_screen.dart';
+import 'recent_logs_screen.dart';
 import 'reports_screen.dart';
+import 'settings_screen.dart';
 import 'vehicle_form_screen.dart';
 import 'vehicles_screen.dart';
 
@@ -98,7 +101,10 @@ class _MainShellState extends State<MainShell> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: theme.colorScheme.primary),
+              LoadingAnimationWidget.beat(
+                color: theme.colorScheme.primary,
+                size: 44,
+              ),
               const SizedBox(height: 16),
               const Text('Loading your garage...'),
             ],
@@ -136,6 +142,17 @@ class _MainShellState extends State<MainShell> {
         appBar: AppBar(
           title: const Text('BiyaheLog'),
           actions: [
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Settings',
+            ),
             IconButton(
               onPressed: widget.onLogout,
               icon: const Icon(Icons.logout),
@@ -186,8 +203,13 @@ class _MainShellState extends State<MainShell> {
         vehicle: active,
         vehicles: _vehicles,
         onSwitchVehicle: _switchVehicle,
-        onOpenGarage: () => setState(() => _index = 2),
+        onOpenRecentLogs: () => setState(() => _index = 1),
+        onOpenGarage: () => setState(() => _index = 3),
         onLogout: widget.onLogout,
+      ),
+      RecentLogsScreen(
+        key: ValueKey('recent-logs-${active.id}'),
+        vehicle: active,
       ),
       ReportsScreen(
         key: ValueKey('reports-${active.id}'),
@@ -213,6 +235,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Recent Logs',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),

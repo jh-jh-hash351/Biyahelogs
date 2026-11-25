@@ -54,11 +54,12 @@ class DatabaseService {
         databasePath ?? p.join(await getDatabasesPath(), 'biyahe_log.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: _createSchema,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -74,6 +75,9 @@ class DatabaseService {
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
         password_hash TEXT NOT NULL,
         salt TEXT NOT NULL,
+        security_question TEXT,
+        security_answer_hash TEXT,
+        security_salt TEXT,
         created_at TEXT NOT NULL
       )
     ''');
@@ -119,6 +123,21 @@ class DatabaseService {
     );
   }
 
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add security question columns to existing users table
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN security_question TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN security_answer_hash TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE users ADD COLUMN security_salt TEXT',
+      );
+    }
+  }
+
   String _generateSalt() {
     final random = Random.secure();
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
@@ -140,10 +159,20 @@ class DatabaseService {
     required String vehicleType,
     required String engineType,
     String? plateNumber,
+    String? securityQuestion,
+    String? securityAnswer,
   }) async {
     final salt = _generateSalt();
     final hash = _hashPassword(password, salt);
     final now = DateTime.now().toIso8601String();
+
+    String? secSalt;
+    String? secAnswerHash;
+    if (securityQuestion != null && securityAnswer != null) {
+      secSalt = _generateSalt();
+      secAnswerHash = _hashPassword(securityAnswer.trim().toLowerCase(), secSalt);
+    }
+
     late User user;
     await _database.transaction((txn) async {
       final existing = await txn.query(
@@ -159,6 +188,9 @@ class DatabaseService {
         'username': username,
         'password_hash': hash,
         'salt': salt,
+        'security_question': securityQuestion,
+        'security_answer_hash': secAnswerHash,
+        'security_salt': secSalt,
         'created_at': now,
       });
       final vehicleId = await txn.insert('vehicles', {
@@ -251,6 +283,62 @@ class DatabaseService {
     await _database.delete('settings', where: 'key = ?', whereArgs: [key]);
   }
 
+  // ── Forgot Password ──────────────────────────────────────────────────────────
+
+  /// Returns the security question for the given username, or null if the
+  /// user does not exist or has no security question set.
+  Future<String?> getSecurityQuestion(String username) async {
+    final rows = await _database.query(
+      'users',
+      columns: ['security_question'],
+      where: 'username = ? COLLATE NOCASE',
+      whereArgs: [username],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['security_question'] as String?;
+  }
+
+  /// Verifies the security answer and, if correct, resets the password.
+  /// Returns true on success, false if the answer is wrong.
+  /// Throws if the user is not found or has no security question.
+  Future<bool> resetPasswordWithSecurityAnswer({
+    required String username,
+    required String answer,
+    required String newPassword,
+  }) async {
+    final rows = await _database.query(
+      'users',
+      where: 'username = ? COLLATE NOCASE',
+      whereArgs: [username],
+      limit: 1,
+    );
+    if (rows.isEmpty) throw Exception('User not found.');
+    final row = rows.first;
+
+    final secSalt = row['security_salt'] as String?;
+    final secHash = row['security_answer_hash'] as String?;
+    if (secSalt == null || secHash == null) {
+      throw Exception('No security question set for this account.');
+    }
+
+    final candidateHash = _hashPassword(answer.trim().toLowerCase(), secSalt);
+    if (candidateHash != secHash) return false;
+
+    // Answer is correct – update the password
+    final newSalt = _generateSalt();
+    final newHash = _hashPassword(newPassword, newSalt);
+    await _database.update(
+      'users',
+      {'password_hash': newHash, 'salt': newSalt},
+      where: 'username = ? COLLATE NOCASE',
+      whereArgs: [username],
+    );
+    return true;
+  }
+
+  // ── Vehicles ─────────────────────────────────────────────────────────────────
+
   Future<List<Vehicle>> getVehicles(int userId) async {
     final rows = await _database.query(
       'vehicles',
@@ -330,6 +418,8 @@ class DatabaseService {
     }
   }
 
+  // ── Logs ─────────────────────────────────────────────────────────────────────
+
   Future<List<LogEntry>> getLogsForVehicle(int vehicleId) async {
     final rows = await _database.query(
       'logs',
@@ -338,6 +428,31 @@ class DatabaseService {
       orderBy: 'date DESC, id DESC',
     );
     return rows.map(LogEntry.fromMap).toList();
+  }
+
+  /// Paginated version: returns [pageSize] logs starting from [offset].
+  Future<List<LogEntry>> getLogsForVehiclePaged(
+    int vehicleId, {
+    required int offset,
+    required int pageSize,
+  }) async {
+    final rows = await _database.query(
+      'logs',
+      where: 'vehicle_id = ?',
+      whereArgs: [vehicleId],
+      orderBy: 'date DESC, id DESC',
+      limit: pageSize,
+      offset: offset,
+    );
+    return rows.map(LogEntry.fromMap).toList();
+  }
+
+  Future<int> getLogCount(int vehicleId) async {
+    final result = await _database.rawQuery(
+      'SELECT COUNT(*) FROM logs WHERE vehicle_id = ?',
+      [vehicleId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<LogEntry?> getLog(int id) async {

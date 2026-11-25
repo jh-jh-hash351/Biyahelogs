@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../models/vehicle.dart';
 import '../services/database_service.dart';
@@ -200,12 +201,9 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                       child: FilledButton.icon(
                         onPressed: _saving ? null : _save,
                         icon: _saving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
+                            ? LoadingAnimationWidget.beat(
+                                color: Theme.of(context).colorScheme.onPrimary,
+                                size: 20,
                               )
                             : const Icon(Icons.check),
                         label: Text(
